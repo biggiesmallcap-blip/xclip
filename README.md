@@ -1,5 +1,7 @@
 # xclip
 
+> Desktop clipper that turns social video URLs into pasteable MP4/GIF clips in seconds.
+
 Paste a video URL, trim a clip, and copy it to your clipboard — ready to paste straight into X, Discord, Slack, etc. Built as a small Tauri 2 + Svelte 5 desktop app for Windows.
 
 The headline feature is **Focus Tools**: select a region on the video and either **reframe** the export crop to follow it, or render a **moving overlay** (highlight box, label, blur/censor, pixelate, spotlight) on top of the original framing. Tracking is manual, recorded mouse path, or auto.
