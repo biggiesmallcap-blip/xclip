@@ -1,0 +1,42 @@
+name: Check
+
+# Fast type-check pass on every push / PR. Does NOT compile or download
+# sidecars — that work belongs to the Release workflow.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-check-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-check-
+
+      - run: npm ci
+
+      - name: Frontend type-check (svelte-check)
+        run: npm run check
+
+      - name: Backend type-check (cargo check)
+        run: cargo check --manifest-path src-tauri/Cargo.toml

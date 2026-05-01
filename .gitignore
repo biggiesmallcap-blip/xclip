@@ -1,0 +1,43 @@
+# Build outputs
+dist/
+build/
+src-tauri/target/
+src-tauri/gen/
+.svelte-kit/
+package/
+
+# Node
+node_modules/
+
+# Sidecar binaries (downloaded at build time — see src-tauri/binaries/README.md)
+src-tauri/binaries/*.exe
+src-tauri/binaries/yt-dlp*
+src-tauri/binaries/ffmpeg*
+src-tauri/binaries/ffprobe*
+
+# Runtime / app data
+downloads/
+output/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Failed-export diagnostics (saved by the app at runtime)
+last-failed-filter.txt
+last-failed-cmd.txt
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Vite tmp
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Misc
+*.log

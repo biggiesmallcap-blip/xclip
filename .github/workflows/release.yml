@@ -1,0 +1,116 @@
+name: Release
+
+# Builds the Windows installers and publishes them to a GitHub Release.
+#
+# Triggers:
+#   - Push of a tag matching v*.*.*  → publishes a release tagged with that version
+#   - Manual run via the Actions tab → builds artifacts but does NOT publish a release
+#
+# CI populates the sidecar binaries (yt-dlp, ffmpeg, ffprobe) before invoking
+# tauri-action, since those are not committed to the repo.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (windows-latest)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Download sidecar binaries
+        shell: pwsh
+        run: |
+          $bin = "src-tauri/binaries"
+          New-Item -ItemType Directory -Force -Path $bin | Out-Null
+
+          Write-Host "Downloading yt-dlp..."
+          Invoke-WebRequest `
+            -Uri "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" `
+            -OutFile "$bin/yt-dlp-x86_64-pc-windows-msvc.exe"
+
+          Write-Host "Downloading ffmpeg + ffprobe..."
+          $ffZip = New-TemporaryFile
+          $ffZipPath = "$($ffZip.FullName).zip"
+          Invoke-WebRequest `
+            -Uri "https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip" `
+            -OutFile $ffZipPath
+          $extractDir = "$($ffZip.FullName)-extracted"
+          Expand-Archive -Path $ffZipPath -DestinationPath $extractDir -Force
+          $ffBin = Get-ChildItem -Path $extractDir -Recurse -Directory | Where-Object { $_.Name -eq "bin" } | Select-Object -First 1
+          Copy-Item "$($ffBin.FullName)/ffmpeg.exe"  "$bin/ffmpeg-x86_64-pc-windows-msvc.exe"
+          Copy-Item "$($ffBin.FullName)/ffprobe.exe" "$bin/ffprobe-x86_64-pc-windows-msvc.exe"
+          Remove-Item $ffZipPath, $extractDir -Recurse -Force
+
+          Write-Host "Sidecar binaries:"
+          Get-ChildItem $bin
+
+      - name: Build & publish (tag push)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "xclip ${{ github.ref_name }}"
+          releaseBody: |
+            See [CHANGELOG / ROADMAP](https://github.com/${{ github.repository }}/blob/main/ROADMAP.md) for details.
+
+            **Installers**
+            - `*-setup.exe` — NSIS installer (recommended)
+            - `*.msi` — MSI installer
+
+            Built from `${{ github.sha }}`.
+          releaseDraft: false
+          prerelease: false
+
+      - name: Build only (manual run, no tag)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload installers as workflow artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xclip-windows-installers
+          path: |
+            src-tauri/target/release/bundle/nsis/*-setup.exe
+            src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: warn
+          retention-days: 14
