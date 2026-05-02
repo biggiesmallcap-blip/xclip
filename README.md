@@ -25,7 +25,10 @@ The headline feature is **Focus Tools**: select a region on the video and either
 
 ## Quick start
 
-If you just want the app, grab the latest `.msi` or `.exe` installer from the [Releases page](../../releases/latest).
+Grab the latest from the [Releases page](../../releases/latest):
+
+- **Portable** (`*-portable.zip`) — unzip anywhere, run `xclip.exe`. No installer, no SmartScreen signature prompt. Recommended for most users.
+- **Installer** (`*-setup.exe` or `.msi`) — if you want Start Menu integration / uninstaller.
 
 For development setup see [`INSTALL.md`](./INSTALL.md).
 

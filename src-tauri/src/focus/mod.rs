@@ -221,7 +221,8 @@ pub fn build_filter_plan(
         spotlight_dim: 0.6,
     });
 
-    let is_circle = focus.shape == "circle";
+    // Reframe always uses a rectangular crop — circle shape is ignored there.
+    let is_circle = focus.shape == "circle" && focus.mode != "reframe";
 
     // Alpha-mask expressions on a [0..first_w_int] × [0..first_h_int] crop, normalized to a unit
     // ellipse so circle/ellipse semantics fall out automatically.

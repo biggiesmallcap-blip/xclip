@@ -79,38 +79,103 @@ jobs:
           Write-Host "Sidecar binaries:"
           Get-ChildItem $bin
 
-      - name: Build & publish (tag push)
+      - name: Build (tag push — installers + portable)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: tauri-apps/tauri-action@v0
+        id: tauri-build-tag
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "xclip ${{ github.ref_name }}"
-          releaseBody: |
-            See [CHANGELOG / ROADMAP](https://github.com/${{ github.repository }}/blob/main/ROADMAP.md) for details.
+          # Don't auto-create the release — we'll attach the portable zip first, then publish.
+          includeUpdaterJson: false
 
-            **Installers**
-            - `*-setup.exe` — NSIS installer (recommended)
-            - `*.msi` — MSI installer
-
-            Built from `${{ github.sha }}`.
-          releaseDraft: false
-          prerelease: false
-
-      - name: Build only (manual run, no tag)
+      - name: Build (manual run, no tag)
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload installers as workflow artifacts
+      - name: Assemble portable zip
+        id: portable
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          if ([string]::IsNullOrWhiteSpace($version)) { $version = "dev" }
+          $portableDir = "portable-build/xclip-portable"
+          New-Item -ItemType Directory -Force -Path $portableDir | Out-Null
+
+          # Main app exe (the un-installed binary lives here)
+          $exe = Get-ChildItem -Path "src-tauri/target/release" -Filter "xclip.exe" -File | Select-Object -First 1
+          if (-not $exe) { throw "xclip.exe not found in src-tauri/target/release" }
+          Copy-Item $exe.FullName "$portableDir/xclip.exe"
+
+          # Sidecar binaries — Tauri's sidecar resolution looks for
+          # <exe_dir>/<binary_name>-<target_triple>.exe at runtime.
+          Copy-Item "src-tauri/binaries/yt-dlp-x86_64-pc-windows-msvc.exe"  "$portableDir/"
+          Copy-Item "src-tauri/binaries/ffmpeg-x86_64-pc-windows-msvc.exe"  "$portableDir/"
+          Copy-Item "src-tauri/binaries/ffprobe-x86_64-pc-windows-msvc.exe" "$portableDir/"
+
+          # README so users know what they're looking at
+          @"
+          xclip $version — portable build
+          ================================
+
+          This folder is fully self-contained. Run xclip.exe directly; no
+          install required. Keep all four .exe files together.
+
+          - xclip.exe                                 main application
+          - ffmpeg-x86_64-pc-windows-msvc.exe         video encoder (sidecar)
+          - ffprobe-x86_64-pc-windows-msvc.exe        media probe (sidecar)
+          - yt-dlp-x86_64-pc-windows-msvc.exe         URL downloader (sidecar)
+
+          Settings persist via the WebView's localStorage (per-user).
+          Output and downloads default to E:\xclip\<output|downloads>; you
+          can change the output folder in the app's Save-to field.
+          "@ | Out-File -FilePath "$portableDir/README.txt" -Encoding utf8
+
+          $zipName = "xclip_${version}_x64-portable.zip"
+          $zipPath = "src-tauri/target/release/bundle/$zipName"
+          New-Item -ItemType Directory -Force -Path (Split-Path $zipPath) | Out-Null
+          Compress-Archive -Path "portable-build/xclip-portable" -DestinationPath $zipPath -Force
+
+          Write-Host "Portable archive ready: $zipPath"
+          Get-ChildItem $zipPath | Format-List Name, Length
+          "portable_zip=$zipPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Publish GitHub Release with all artifacts
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "xclip ${{ github.ref_name }}"
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+          body: |
+            See [ROADMAP](https://github.com/${{ github.repository }}/blob/main/ROADMAP.md) for changelog and known issues.
+
+            ## Downloads
+
+            - **`*-setup.exe`** — NSIS installer (recommended for most users)
+            - **`*.msi`** — MSI installer (managed environments)
+            - **`*-portable.zip`** — portable build, no installer, no signature prompt. Unzip and run `xclip.exe`.
+
+            > Windows SmartScreen may flag the installers/exe on first run because they aren't code-signed. Click *More info* → *Run anyway*. The portable zip avoids the installer's signature prompt entirely.
+
+            Built from `${{ github.sha }}`.
+          files: |
+            src-tauri/target/release/bundle/nsis/*-setup.exe
+            src-tauri/target/release/bundle/msi/*.msi
+            ${{ steps.portable.outputs.portable_zip }}
+
+      - name: Upload artifacts (workflow run)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: xclip-windows-installers
+          name: xclip-windows-builds
           path: |
             src-tauri/target/release/bundle/nsis/*-setup.exe
             src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/*-portable.zip
           if-no-files-found: warn
           retention-days: 14

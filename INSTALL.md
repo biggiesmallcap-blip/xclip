@@ -2,14 +2,21 @@
 
 ## End users
 
-Download the latest installer from the [Releases page](../../releases/latest):
+Download the latest from the [Releases page](../../releases/latest):
 
-- `xclip_<version>_x64-setup.exe` (NSIS, smaller, recommended)
-- `xclip_<version>_x64_en-US.msi` (MSI, for managed environments)
+- `xclip_<version>_x64-setup.exe` — NSIS installer (smaller, recommended)
+- `xclip_<version>_x64_en-US.msi` — MSI installer (managed environments)
+- `xclip_<version>_x64-portable.zip` — **portable** build, no installer required
 
-Run the installer. The app self-contains `ffmpeg`, `ffprobe`, and `yt-dlp` — no extra dependencies.
+The app self-contains `ffmpeg`, `ffprobe`, and `yt-dlp` — no extra dependencies.
 
-> **Windows SmartScreen** may flag the unsigned binary on first run. Click *More info* → *Run anyway*.
+### Portable build
+
+Unzip the `*-portable.zip` anywhere. Run `xclip.exe` directly — no install, no registry changes, no admin rights, no SmartScreen installer prompt. Keep all four `.exe` files (xclip + the three sidecars) in the same folder. Settings and clip history persist per-user via the WebView's localStorage.
+
+### Installer warnings
+
+**Windows SmartScreen** may flag the unsigned installer (`-setup.exe` / `.msi`) on first run. Click *More info* → *Run anyway*. If this is a dealbreaker for you or your users, prefer the **portable zip** — it skips the installer flow entirely.
 
 ## Developers
 

@@ -19,11 +19,12 @@ src-tauri/binaries/ffprobe*
 downloads/
 output/
 
-# Editor / OS
+# Editor / OS / agent tooling
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+.claude/
 *.swp
 
 # Failed-export diagnostics (saved by the app at runtime)

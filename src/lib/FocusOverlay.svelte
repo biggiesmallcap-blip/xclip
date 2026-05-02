@@ -68,12 +68,40 @@
 
   let _tick = $state(0);
   $effect(() => {
-    const onResize = () => { _tick++; };
-    window.addEventListener('resize', onResize);
-    window.addEventListener('scroll', onResize, true);
+    const bump = () => { _tick++; };
+    window.addEventListener('resize', bump);
+    window.addEventListener('scroll', bump, true);
+    const v = playerRef.video;
+    let ro: ResizeObserver | null = null;
+    if (v) {
+      // Recompute when the video element gets its real size (metadata, src changes, fullscreen, etc.)
+      v.addEventListener('loadedmetadata', bump);
+      v.addEventListener('loadeddata', bump);
+      v.addEventListener('resize', bump);
+      v.addEventListener('play', bump);
+      try {
+        ro = new ResizeObserver(bump);
+        ro.observe(v);
+      } catch {}
+    }
+    // Also run a few RAF ticks after mount so the first paint settles even
+    // if events were missed (e.g. component mounted after metadata fired).
+    let rafs: number[] = [];
+    rafs.push(requestAnimationFrame(bump));
+    setTimeout(bump, 50);
+    setTimeout(bump, 200);
+    setTimeout(bump, 600);
     return () => {
-      window.removeEventListener('resize', onResize);
-      window.removeEventListener('scroll', onResize, true);
+      window.removeEventListener('resize', bump);
+      window.removeEventListener('scroll', bump, true);
+      if (v) {
+        v.removeEventListener('loadedmetadata', bump);
+        v.removeEventListener('loadeddata', bump);
+        v.removeEventListener('resize', bump);
+        v.removeEventListener('play', bump);
+      }
+      ro?.disconnect();
+      rafs.forEach(cancelAnimationFrame);
     };
   });
 
@@ -204,7 +232,8 @@
   {@const rh = cssRegion.height}
   {@const cx = rx + rw / 2}
   {@const cy = ry + rh / 2}
-  {@const isCircle = ft.shape === 'circle'}
+  <!-- Reframe always uses a rectangular crop — circle shape is ignored there. -->
+  {@const isCircle = ft.shape === 'circle' && ft.mode !== 'reframe'}
   {@const sw = Math.max(1, ft.style.strokeWidth)}
   <svg
     bind:this={svgEl}
