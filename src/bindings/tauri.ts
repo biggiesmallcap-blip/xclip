@@ -54,6 +54,18 @@ export const exportClip = (args: {
 export const defaultOutputDir = () => invoke<string>('default_output_dir');
 export const revealInFolder = (path: string) => invoke<void>('reveal_in_folder', { path });
 
+export type YtDlpUpdateStatus =
+  | { kind: 'skipped'; currentVersion: string | null }
+  | { kind: 'upToDate'; version: string }
+  | { kind: 'updated'; from: string | null; to: string }
+  | { kind: 'failed'; reason: string };
+
+export const ytDlpCheckUpdate = (force = false) =>
+  invoke<YtDlpUpdateStatus>('yt_dlp_check_update', { force });
+
+export const ytDlpUpdateNow = () =>
+  invoke<YtDlpUpdateStatus>('yt_dlp_update_now');
+
 export const copyFile = (path: string) =>
   invoke<void>('copy_file_to_clipboard', { path });
 

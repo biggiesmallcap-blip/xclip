@@ -90,6 +90,23 @@ npm run check               # Svelte + TS
 cargo check --manifest-path src-tauri/Cargo.toml   # Rust
 ```
 
+## yt-dlp auto-updates
+
+xclip checks for a newer `yt-dlp.exe` once per 7 days (silently in the background). The downloaded copy lives at `%APPDATA%\dev.xclip.app\bin\yt-dlp.exe` and is preferred over the bundled binary at runtime. The previous version is kept as `yt-dlp.exe.bak` so a bad update auto-rolls back. Press **Check yt-dlp** below the URL field to force a check on demand.
+
+If the update gets stuck or you want to start over:
+
+```powershell
+Remove-Item "$env:APPDATA\dev.xclip.app\bin\yt-dlp.exe*" -Force
+Remove-Item "$env:APPDATA\dev.xclip.app\yt-dlp-update.json" -Force
+```
+
+The next launch will redownload from scratch — and if the network is unavailable, fall through to the bundled sidecar.
+
+## Third-party licenses
+
+Bundled `ffmpeg` / `ffprobe` are GPL-licensed binaries; `yt-dlp` is Unlicense (public domain). Full disclosure in [NOTICES.md](./NOTICES.md).
+
 ## Troubleshooting
 
 **`ffmpeg sidecar not available`** — `src-tauri/binaries/` is missing the `*-x86_64-pc-windows-msvc.exe` files. Re-run step 2.

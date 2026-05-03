@@ -69,4 +69,6 @@ src-tauri/binaries/   Sidecar binaries (NOT committed — see binaries/README.md
 
 ## License
 
-MIT.
+xclip itself is **MIT**. Bundled third-party binaries (ffmpeg, ffprobe, yt-dlp) keep their own licenses — see [NOTICES.md](./NOTICES.md) for full disclosure.
+
+> yt-dlp self-updates from its [official GitHub releases](https://github.com/yt-dlp/yt-dlp/releases) at most once per 7 days. The bundled copy is the immutable fallback — manual update available via the **Check yt-dlp** button next to the URL field.

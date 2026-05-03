@@ -1,4 +1,5 @@
 use serde::Serialize;
+use std::path::PathBuf;
 use tauri::AppHandle;
 use tauri_plugin_shell::ShellExt;
 use url::Url;
@@ -27,6 +28,29 @@ fn host_is_allowed(host: &str) -> bool {
     })
 }
 
+enum YtDlpKind {
+    Override(PathBuf),
+    Backup(PathBuf),
+    Bundled,
+}
+
+fn resolve_yt_dlp(app: &AppHandle) -> YtDlpKind {
+    if let Ok(p) = paths::yt_dlp_override_path(app) {
+        if p.exists() {
+            eprintln!("[xclip:yt-dlp-resolve] using override at {}", p.display());
+            return YtDlpKind::Override(p);
+        }
+    }
+    if let Ok(p) = paths::yt_dlp_backup_path(app) {
+        if p.exists() {
+            eprintln!("[xclip:yt-dlp-resolve] override missing; falling back to backup at {}", p.display());
+            return YtDlpKind::Backup(p);
+        }
+    }
+    eprintln!("[xclip:yt-dlp-resolve] using bundled sidecar");
+    YtDlpKind::Bundled
+}
+
 #[tauri::command]
 pub async fn download(app: AppHandle, url: String) -> Result<DownloadResult, String> {
     let parsed = Url::parse(&url).map_err(|_| "Invalid URL.".to_string())?;
@@ -45,38 +69,58 @@ pub async fn download(app: AppHandle, url: String) -> Result<DownloadResult, Str
     let template = cache.join("%(id)s-%(epoch)s.%(ext)s");
     let template_str = template.to_string_lossy().to_string();
 
-    let cmd = app
-        .shell()
-        .sidecar("yt-dlp")
-        .map_err(|e| format!("yt-dlp sidecar not available: {e}"))?
-        .args([
-            "-f",
-            "bv*+ba/b",
-            "--merge-output-format",
-            "mp4",
-            "--no-playlist",
-            "--restrict-filenames",
-            "--no-warnings",
-            "--print",
-            "after_move:filepath",
-            "-o",
-            template_str.as_str(),
-            url.as_str(),
-        ]);
+    let yt_dlp_args: Vec<String> = vec![
+        "-f".into(),
+        "bv*+ba/b".into(),
+        "--merge-output-format".into(),
+        "mp4".into(),
+        "--no-playlist".into(),
+        "--restrict-filenames".into(),
+        "--no-warnings".into(),
+        "--print".into(),
+        "after_move:filepath".into(),
+        "-o".into(),
+        template_str,
+        url.clone(),
+    ];
 
-    let output = cmd
-        .output()
-        .await
-        .map_err(|e| format!("Failed to run yt-dlp: {e}"))?;
+    let (status_ok, stdout_str, stderr_str) = match resolve_yt_dlp(&app) {
+        YtDlpKind::Override(p) | YtDlpKind::Backup(p) => {
+            let out = tokio::process::Command::new(&p)
+                .args(&yt_dlp_args)
+                .output()
+                .await
+                .map_err(|e| format!("Failed to run yt-dlp: {e}"))?;
+            (
+                out.status.success(),
+                String::from_utf8_lossy(&out.stdout).to_string(),
+                String::from_utf8_lossy(&out.stderr).to_string(),
+            )
+        }
+        YtDlpKind::Bundled => {
+            let cmd = app
+                .shell()
+                .sidecar("yt-dlp")
+                .map_err(|e| format!("yt-dlp sidecar not available: {e}"))?
+                .args(&yt_dlp_args);
+            let out = cmd
+                .output()
+                .await
+                .map_err(|e| format!("Failed to run yt-dlp: {e}"))?;
+            (
+                out.status.success(),
+                String::from_utf8_lossy(&out.stdout).to_string(),
+                String::from_utf8_lossy(&out.stderr).to_string(),
+            )
+        }
+    };
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        eprintln!("[xclip] yt-dlp failed: {}", stderr);
+    if !status_ok {
+        eprintln!("[xclip:yt-dlp-resolve] yt-dlp failed: {stderr_str}");
         return Err("Download failed. Check the URL or try again.".to_string());
     }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let path = stdout
+    let path = stdout_str
         .lines()
         .map(|l| l.trim())
         .filter(|l| !l.is_empty())
