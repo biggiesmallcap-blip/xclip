@@ -8,20 +8,22 @@ The headline feature is **Focus Tools**: select a region on the video and either
 
 ## Features
 
-- Paste a video URL → downloads via `yt-dlp`, plays in-app
+- Paste a video URL — TikTok, Instagram, YouTube, X, Reddit — downloads via `yt-dlp`, plays in-app
+- **`yt-dlp` self-updates** weekly from its official GitHub releases, with validation, rollback, and a manual *Check yt-dlp* button. Bundled copy is the immutable fallback.
 - Trim with `[` / `]` (or the inputs)
 - Export to **MP4** or **GIF** at three quality presets
-- Auto-copies the finished file to clipboard
+- Auto-copies the finished file to clipboard; **Copy Last** re-copies the previous export
+- Custom output folder + live output-size estimate
 - **Focus Tools** for following a subject on export:
   - **Reframe Camera** — animate a crop to follow the subject; lock to 1:1, 4:5, 9:16, 16:9
   - **Highlight Box / Label Box** — moving outline (and text) over the original frame
   - **Blur / Censor / Pixelate** — moving privacy mask
   - **Spotlight** — clear region with the rest dimmed
-  - Shape: Rectangle or Circle
-- Three tracking methods: manual keyframes, record-mouse-path (with smoothing), and auto-track (stub on Windows)
+  - Shape: Rectangle or Circle (export honors the shape via `geq` alpha-mask)
+- Three tracking methods: manual keyframes, record-mouse-path (with EMA smoothing + post-record Smooth pass), auto-track (stub returning a friendly "not supported" error)
+- Hold-to-record: click+hold the focus box, press **R**, drag to trace, release to stop while video keeps playing
 - Timeline with keyframe markers, drag-select range, right-click delete
-- Persistable Focus Tools defaults across clips
-- Custom output folder + size estimate
+- Persistable Focus Tools defaults across clips, with a Reset button
 
 ## Quick start
 
@@ -51,7 +53,10 @@ For development setup see [`INSTALL.md`](./INSTALL.md).
 
 - **Frontend**: Svelte 5 (runes) + TypeScript + Vite
 - **Backend**: Tauri 2 (Rust)
-- **Media**: bundled `ffmpeg` + `ffprobe` + `yt-dlp` as sidecar binaries
+- **Media**: bundled `ffmpeg` + `ffprobe` (BtbN GPL build) + `yt-dlp` as sidecar binaries
+- **HTTP**: `reqwest` (rustls) for the yt-dlp updater
+
+See [NOTICES.md](./NOTICES.md) for third-party licenses.
 
 ## Project layout
 
