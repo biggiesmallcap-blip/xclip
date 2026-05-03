@@ -35,6 +35,18 @@ jobs:
 
       - run: npm ci
 
+      - name: Create sidecar placeholders
+        # Tauri's build script validates that every externalBin path exists.
+        # For type-checking we don't need real binaries — empty placeholders
+        # with the correct -<target_triple>.exe naming are enough.
+        shell: pwsh
+        run: |
+          $bin = "src-tauri/binaries"
+          New-Item -ItemType Directory -Force -Path $bin | Out-Null
+          New-Item -ItemType File -Force -Path "$bin/yt-dlp-x86_64-pc-windows-msvc.exe"  | Out-Null
+          New-Item -ItemType File -Force -Path "$bin/ffmpeg-x86_64-pc-windows-msvc.exe"  | Out-Null
+          New-Item -ItemType File -Force -Path "$bin/ffprobe-x86_64-pc-windows-msvc.exe" | Out-Null
+
       - name: Frontend type-check (svelte-check)
         run: npm run check
 
